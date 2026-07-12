@@ -11,6 +11,7 @@
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/helpers/Monitor.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
 #include "config.hpp"
