@@ -4,10 +4,10 @@
 #include <string>
 
 #include <hyprland/src/config/values/ConfigValues.hpp>
-#include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
 #include "globals.hpp"
+#include "log.hpp"
 #include "mode.hpp"
 
 namespace hyprwsmode {
@@ -102,9 +102,7 @@ namespace hyprwsmode {
         // not yet called) or Hyprlang gave us something unexpected. Fall
         // back rather than throw; a listener that throws crashes the
         // compositor.
-        Log::logger->log(Log::WARN,
-                         "[hyprwsmode] resolveDefaultType({}): unknown value '{}', falling back to tile",
-                         id, raw);
+        log::warn("resolveDefaultType({}): unknown value '{}', falling back to tile", id, raw);
         return ManagedType::Tile;
     }
 

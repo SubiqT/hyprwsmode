@@ -7,7 +7,6 @@
 
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/SharedDefs.hpp>
-#include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
@@ -16,6 +15,7 @@
 
 #include "config.hpp"
 #include "globals.hpp"
+#include "log.hpp"
 #include "mode.hpp"
 #include "state.hpp"
 #include "window.hpp"
@@ -102,7 +102,7 @@ namespace hyprwsmode {
         }
 
         SDispatchResult err(const std::string& msg) {
-            Log::logger->log(Log::WARN, "[hyprwsmode] dispatcher: {}", msg);
+            log::warn("dispatcher: {}", msg);
             return SDispatchResult{.passEvent = false, .success = false, .error = msg};
         }
 
@@ -135,9 +135,8 @@ namespace hyprwsmode {
                 // next toggle_float restores the opposite managed type.
                 // Emit anyway so consumers see the DEBUG-like signal.
                 rt.lastManaged = flip(rt.lastManaged);
-                Log::logger->log(Log::DEBUG,
-                                 "[hyprwsmode] toggle on floating ws {}, updated lastManaged to {}",
-                                 wsId, formatManagedType(rt.lastManaged));
+                log::debug("toggle on floating ws {}, updated lastManaged to {}",
+                           wsId, formatManagedType(rt.lastManaged));
             }
 
             return okWith(commit(wsId, rt, previous));

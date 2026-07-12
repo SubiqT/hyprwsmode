@@ -3,13 +3,13 @@
 #include <stdexcept>
 #include <string>
 
-#include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
 #include "config.hpp"
 #include "dispatcher.hpp"
 #include "globals.hpp"
+#include "log.hpp"
 #include "state.hpp"
 #include "window.hpp"
 
@@ -56,7 +56,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         CHyprColor{0.2, 1.0, 0.2, 1.0},
         3000);
 
-    Log::logger->log(Log::WARN, "[hyprwsmode] PLUGIN_INIT completed, listeners registered");
+    hyprwsmode::log::info("plugin loaded");
 
     return {"hyprwsmode",
             "Per-workspace window modes for Hyprland",
@@ -65,5 +65,5 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
-    Log::logger->log(Log::INFO, "[hyprwsmode] plugin unloaded");
+    hyprwsmode::log::info("plugin unloaded");
 }

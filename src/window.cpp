@@ -1,12 +1,12 @@
 #include "window.hpp"
 
-#include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/view/Group.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/signal/Signal.hpp>
 
+#include "log.hpp"
 #include "mode.hpp"
 #include "state.hpp"
 
@@ -15,6 +15,7 @@ namespace hyprwsmode {
     namespace {
         // Signal handles must be kept alive; see state.cpp for rationale.
         CHyprSignalListener g_openEarlyListener;
+        CHyprSignalListener g_openListener;
         CHyprSignalListener g_moveToWorkspaceListener;
     }
 
@@ -63,9 +64,7 @@ namespace hyprwsmode {
                            } else {
                                auto fresh = Desktop::View::CGroup::create({w});
                                if (!fresh) {
-                                   Log::logger->log(Log::WARN,
-                                                    "[hyprwsmode] CGroup::create returned null for workspace {}",
-                                                    wsId);
+                                   log::warn("CGroup::create returned null for workspace {}", wsId);
                                    return;
                                }
                                groupRef = fresh;
@@ -76,37 +75,59 @@ namespace hyprwsmode {
     }
 
     void registerWindowListeners() {
-        // openEarly fires in CWindow::mapWindow at Window.cpp:2124 (v0.55.4),
-        // after window rules have set m_isFloating and before the auto-group
-        // check, layout newTarget, and the m_isFloating-based sizing branch.
-        // Writing m_isFloating and m_group here is respected by the code
-        // that follows.
+        // Split the openEarly path by mode:
+        //
+        // - Floating: safe pre-placement. Setting m_isFloating = true before
+        //   g_layoutManager->newTarget (Window.cpp:2136) lets the layout
+        //   branch into its floating path directly, no flash.
+        //
+        // - Managed{Stack}: NOT safe pre-placement. CGroup::add expects
+        //   w->layoutTarget()->space() to be set, which requires newTarget
+        //   to have run first. Calling add at openEarly on the second window
+        //   crashes. Defer to window.open (fires at Window.cpp:2265, after
+        //   newTarget and updateWindowData). Trade-off documented: a brief
+        //   frame where the second+ stack window may render tiled before
+        //   joining the group.
+        //
+        // - Managed{Tile}: no-op in either listener, dwindle takes over.
         g_openEarlyListener = Event::bus()->m_events.window.openEarly.listen(
             [](PHLWINDOW w) {
-                Log::logger->log(Log::WARN,
-                                 "[hyprwsmode] openEarly fired for window={}",
-                                 (void*)w.get());
                 if (!w || !w->m_workspace)
                     return;
 
                 const WORKSPACEID id = w->m_workspace->m_id;
-                auto& rt = seedFor(id);
-                Log::logger->log(Log::WARN,
-                                 "[hyprwsmode] openEarly ws={} mode={}",
-                                 id, formatMode(rt.current));
+                auto&             rt = seedFor(id);
+
+                if (std::holds_alternative<Floating>(rt.current))
+                    applyModeToWindow(w, id, rt.current);
+            });
+
+        g_openListener = Event::bus()->m_events.window.open.listen(
+            [](PHLWINDOW w) {
+                if (!w || !w->m_workspace)
+                    return;
+
+                const WORKSPACEID id = w->m_workspace->m_id;
+                auto&             rt = seedFor(id);
+
+                if (!std::holds_alternative<Managed>(rt.current))
+                    return;
+                if (std::get<Managed>(rt.current).type != ManagedType::Stack)
+                    return;
+
                 applyModeToWindow(w, id, rt.current);
             });
 
-        // moveToWorkspace(w, ws) fires when a window is moved to a
-        // different workspace. Payload is (PHLWINDOW, PHLWORKSPACE), the
-        // destination workspace. Apply the destination's mode.
+        // moveToWorkspace(w, ws) fires after the window has been fully placed
+        // on the source workspace, so calling applyModeToWindow with its
+        // group manipulation is safe here even for stack mode.
         g_moveToWorkspaceListener = Event::bus()->m_events.window.moveToWorkspace.listen(
             [](PHLWINDOW w, PHLWORKSPACE ws) {
                 if (!w || !ws)
                     return;
 
                 const WORKSPACEID id = ws->m_id;
-                auto& rt = seedFor(id);
+                auto&             rt = seedFor(id);
                 applyModeToWindow(w, id, rt.current);
             });
     }

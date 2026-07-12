@@ -4,11 +4,11 @@
 #include <string>
 
 #include <hyprland/src/Compositor.hpp>
-#include <hyprland/src/debug/log/Logger.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/managers/EventManager.hpp>
 
 #include "config.hpp"
+#include "log.hpp"
 #include "mode.hpp"
 
 namespace hyprwsmode {
@@ -46,9 +46,7 @@ namespace hyprwsmode {
         // src/managers/EventManager.hpp:44. Guard defensively for the
         // shutdown window even though listeners shouldn't fire then.
         if (!g_pEventManager) {
-            Log::logger->log(Log::WARN,
-                             "[hyprwsmode] emit({}): g_pEventManager is null, skipping",
-                             id);
+            log::warn("emit({}): g_pEventManager is null, skipping", id);
             return;
         }
 
