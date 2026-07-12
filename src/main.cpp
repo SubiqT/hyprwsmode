@@ -9,6 +9,7 @@
 
 #include "config.hpp"
 #include "globals.hpp"
+#include "state.hpp"
 
 // PLUGIN_API_VERSION returns the ABI tag baked into the Hyprland headers
 // at build time. Do NOT change. Hyprland compares this against its own
@@ -40,6 +41,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     // user-supplied values in hyprland.conf are honoured on first load.
     hyprwsmode::registerConfig();
     HyprlandAPI::reloadConfig();
+
+    // Register lifecycle listeners after config so seeding reads the
+    // user-supplied values, not just defaults.
+    hyprwsmode::registerListeners();
 
     HyprlandAPI::addNotification(
         PHANDLE,
