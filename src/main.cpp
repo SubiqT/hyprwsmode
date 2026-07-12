@@ -56,7 +56,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         CHyprColor{0.2, 1.0, 0.2, 1.0},
         3000);
 
-    Log::logger->log(Log::INFO, "[hyprwsmode] plugin loaded");
+    Log::logger->log(Log::WARN, "[hyprwsmode] PLUGIN_INIT completed, listeners registered");
 
     return {"hyprwsmode",
             "Per-workspace window modes for Hyprland",

@@ -83,11 +83,17 @@ namespace hyprwsmode {
         // that follows.
         g_openEarlyListener = Event::bus()->m_events.window.openEarly.listen(
             [](PHLWINDOW w) {
+                Log::logger->log(Log::WARN,
+                                 "[hyprwsmode] openEarly fired for window={}",
+                                 (void*)w.get());
                 if (!w || !w->m_workspace)
                     return;
 
                 const WORKSPACEID id = w->m_workspace->m_id;
                 auto& rt = seedFor(id);
+                Log::logger->log(Log::WARN,
+                                 "[hyprwsmode] openEarly ws={} mode={}",
+                                 id, formatMode(rt.current));
                 applyModeToWindow(w, id, rt.current);
             });
 
