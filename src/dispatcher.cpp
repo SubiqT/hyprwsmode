@@ -13,6 +13,7 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
+#include "config.hpp"
 #include "globals.hpp"
 #include "mode.hpp"
 #include "state.hpp"
@@ -158,6 +159,22 @@ namespace hyprwsmode {
             return okWith(std::string{formatMode(rt.current)});
         }
 
+        // `wsmode reseed` on the active workspace: forget the current runtime
+        // entry, re-read the workspace's default from config, and apply it as
+        // if a fresh `wsmode set <default>` had been issued. Discoverable
+        // escape hatch for the "I edited my Nix config and want it to apply
+        // right now" case; the alternative is bouncing the workspace by
+        // moving windows off it or waiting for the next Hyprland launch.
+        SDispatchResult doReseed(WORKSPACEID wsId) {
+            const auto previous = g_workspaceModes.contains(wsId)
+                                    ? g_workspaceModes.at(wsId).current
+                                    : resolveDefault(wsId);
+
+            g_workspaceModes.erase(wsId);
+            auto& rt = seedFor(wsId);
+            return okWith(commit(wsId, rt, previous));
+        }
+
         SDispatchResult handle(std::string args) {
             const auto [cmd, arg] = splitArgs(args);
 
@@ -165,13 +182,16 @@ namespace hyprwsmode {
             if (wsId == WORKSPACE_INVALID)
                 return err("no active workspace");
 
+            // `reseed` deletes the entry, so route it before seedFor.
+            if (cmd == "reseed")       return doReseed(wsId);
+
             auto& rt = seedFor(wsId);
 
             if (cmd == "toggle")       return doToggle(wsId, rt);
             if (cmd == "toggle_float") return doToggleFloat(wsId, rt);
             if (cmd == "set")          return doSet(wsId, rt, arg);
             if (cmd == "current")      return doCurrent(rt);
-            if (cmd.empty())           return err("wsmode: missing subcommand (toggle | toggle_float | set | current)");
+            if (cmd.empty())           return err("wsmode: missing subcommand (toggle | toggle_float | set | reseed | current)");
 
             return err(std::format("wsmode: unknown subcommand '{}'", cmd));
         }

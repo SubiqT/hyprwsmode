@@ -85,9 +85,10 @@ Workspaces outside 1..9 (including negative-id special workspaces) fall
 through to the global defaults with no per-workspace override option.
 
 Config changes take effect on workspace creation. `hyprctl reload` does
-not retroactively change the mode of a workspace that already exists;
-destroy and recreate the workspace (move windows off, or wait for the
-next Hyprland launch) to pick up a new default.
+not retroactively change the mode of a workspace that already exists.
+To apply a new default to an existing workspace without waiting for it
+to be recreated, dispatch `wsmode reseed` on that workspace; it
+re-reads the current config and applies the mode.
 
 ## Dispatchers
 
@@ -103,6 +104,7 @@ Bind these via `bind = ..., dispatcher, wsmode, <subcommand>` in
 | `wsmode set stack`      | Set the active workspace to stack.            |
 | `wsmode set float`      | Set the active workspace to float.            |
 | `wsmode current`        | Print the active workspace's mode.            |
+| `wsmode reseed`         | Recompute the active workspace's mode from current config, as if the workspace had just been created. Use after editing defaults in `hyprland.conf` or Nix and running `hyprctl reload`. |
 
 Existing windows on the target workspace are left in place, except when
 transitioning to `stack`: existing non-floating windows are grouped
