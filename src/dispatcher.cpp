@@ -13,6 +13,11 @@
 #include <hyprland/src/helpers/Monitor.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
+extern "C" {
+#include <lauxlib.h>
+#include <lua.h>
+}
+
 #include "config.hpp"
 #include "globals.hpp"
 #include "log.hpp"
@@ -198,8 +203,76 @@ namespace hyprwsmode {
 
     }  // namespace
 
+    namespace {
+
+        // Lua thunks. Hyprland 0.55+ exposes plugin operations under
+        // hl.plugin.<namespace>.<name>. `hyprctl dispatch` now routes
+        // through Lua, so an addDispatcherV2 handler alone is not
+        // reachable via `hyprctl dispatch wsmode <...>` unless the user
+        // also configures Hyprland to use the classic keybind syntax.
+        // Registering these thunks gives users both paths:
+        //
+        //   bind = SUPER, m, dispatcher, wsmode, toggle        # classic
+        //   hyprctl dispatch 'hl.plugin.wsmode.toggle()'       # Lua
+        //   local hy = hl.plugin.wsmode; hy.toggle()           # Lua config
+        //
+        // Signatures match PLUGIN_LUA_FN = int (*)(lua_State*); a return
+        // value of N means "N return values pushed on the Lua stack".
+
+        int lua_toggle(lua_State* L) {
+            (void)L;
+            handle("toggle");
+            return 0;
+        }
+
+        int lua_toggle_float(lua_State* L) {
+            (void)L;
+            handle("toggle_float");
+            return 0;
+        }
+
+        int lua_set(lua_State* L) {
+            const char* arg = luaL_checkstring(L, 1);
+            handle(std::string{"set "} + arg);
+            return 0;
+        }
+
+        int lua_current(lua_State* L) {
+            auto result = handle("current");
+            lua_pushstring(L, result.error.c_str());
+            return 1;
+        }
+
+        int lua_reseed(lua_State* L) {
+            (void)L;
+            handle("reseed");
+            return 0;
+        }
+
+    }  // namespace
+
     void registerDispatchers() {
         HyprlandAPI::addDispatcherV2(PHANDLE, "wsmode", handle);
+
+        // Lua namespace `hl.plugin.wsmode.*`. Register each subcommand as
+        // a separate callable rather than a single dispatcher-string, so
+        // the Lua-side API mirrors the C++ one and errors on typos.
+        struct SLuaBinding {
+            const char* name;
+            PLUGIN_LUA_FN fn;
+        };
+        static const SLuaBinding bindings[] = {
+            {"toggle",       &lua_toggle},
+            {"toggle_float", &lua_toggle_float},
+            {"set",          &lua_set},
+            {"current",      &lua_current},
+            {"reseed",       &lua_reseed},
+        };
+
+        for (const auto& b : bindings) {
+            if (!HyprlandAPI::addLuaFunction(PHANDLE, "wsmode", b.name, b.fn))
+                log::warn("addLuaFunction failed for hl.plugin.wsmode.{}", b.name);
+        }
     }
 
 }  // namespace hyprwsmode

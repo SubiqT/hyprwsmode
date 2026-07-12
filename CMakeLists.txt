@@ -33,6 +33,16 @@ pkg_check_modules(deps REQUIRED IMPORTED_TARGET
     wayland-server
     xkbcommon
 )
-target_link_libraries(hyprwsmode PRIVATE PkgConfig::deps)
+
+# Hyprland 0.55+ requires Lua 5.5 for its Lua-based config and routes
+# hyprctl dispatch through the Lua bindings. Plugins that want to be
+# callable via `hyprctl dispatch <lua-expression>` and from Lua config
+# files (hl.plugin.<name>.<fn>) need to link Lua themselves; hyprland.pc
+# does not chain it in. Search the same set of package names Hyprland's
+# own CMakeLists uses so distros' varying Lua .pc naming is handled.
+pkg_search_module(LUA REQUIRED IMPORTED_TARGET
+    lua55 lua5.5 lua-55 lua-5.5 lua>=5.5 lua<5.6)
+
+target_link_libraries(hyprwsmode PRIVATE PkgConfig::deps PkgConfig::LUA)
 
 install(TARGETS hyprwsmode LIBRARY)

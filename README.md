@@ -92,9 +92,32 @@ re-reads the current config and applies the mode.
 
 ## Dispatchers
 
-Bind these via `bind = ..., dispatcher, wsmode, <subcommand>` in
-`hyprland.conf`, or call directly with `hyprctl dispatch wsmode
-<subcommand>`.
+Three ways to invoke the plugin's actions:
+
+1. **Classic keybind syntax** in `hyprland.conf`:
+   ```
+   bind = SUPER, m, dispatcher, wsmode, toggle
+   bind = SUPER SHIFT, m, dispatcher, wsmode, toggle_float
+   ```
+
+2. **Lua config** in `hyprland.lua`, using the `hl.plugin.wsmode.*` namespace:
+   ```lua
+   local wsmode = hl.plugin.wsmode
+   hl.bind({ mod = "SUPER", key = "m", action = wsmode.toggle })
+   hl.bind({ mod = "SUPER_SHIFT", key = "m", action = wsmode.toggle_float })
+   ```
+
+3. **`hyprctl` from the shell**, either through the classic dispatch:
+   ```sh
+   hyprctl dispatch wsmode toggle
+   hyprctl dispatch wsmode current
+   ```
+   or through Lua evaluation on Hyprland 0.55+:
+   ```sh
+   hyprctl dispatch 'hl.plugin.wsmode.toggle()'
+   ```
+
+Subcommands:
 
 | Subcommand              | Behaviour                                     |
 | ---                     | ---                                           |
