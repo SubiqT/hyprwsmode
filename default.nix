@@ -5,6 +5,7 @@
   cmake,
   ninja,
   pkg-config,
+  lua5_5,
 }:
 # Build with Hyprland's stdenv so the compiler, libstdc++ and PIE flags
 # match the compositor. Any mismatch here shows up as an obscure symbol
@@ -21,7 +22,9 @@ hyprland.stdenv.mkDerivation {
   # hyprland.dev provides pkg-config discovery for the hyprland .pc file.
   # hyprland.buildInputs pulls in aquamarine, hyprutils, hyprlang etc.
   # that Hyprland's headers include.
-  buildInputs = [ hyprland.dev ] ++ hyprland.buildInputs;
+  # lua5_5: pkg-config discovery for the Lua headers the plugin uses to
+  # register hl.plugin.wsmode.* callbacks. hyprland.pc does not chain it.
+  buildInputs = [ hyprland.dev lua5_5 ] ++ hyprland.buildInputs;
 
   # Use ninja (added to nativeBuildInputs) rather than the default make.
   # This matches hy3's pattern and gives noticeably faster incremental
