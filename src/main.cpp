@@ -8,6 +8,7 @@
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
 #include "config.hpp"
+#include "dispatcher.hpp"
 #include "globals.hpp"
 #include "state.hpp"
 #include "window.hpp"
@@ -47,6 +48,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     // user-supplied values, not just defaults.
     hyprwsmode::registerListeners();
     hyprwsmode::registerWindowListeners();
+    hyprwsmode::registerDispatchers();
 
     HyprlandAPI::addNotification(
         PHANDLE,
