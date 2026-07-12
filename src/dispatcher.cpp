@@ -68,20 +68,30 @@ namespace hyprwsmode {
 
         // Apply the state change for a `set` or `toggle`, then apply mode
         // to existing windows per design rules 2 and 3, and emit the
-        // socket2 event. Returns the mode string suitable for
-        // SDispatchResult.error (used as hyprctl output).
+        // socket2 event only when the wire-facing mode actually changed.
+        // Returns the mode string suitable for SDispatchResult.error
+        // (used as hyprctl output).
+        bool isStack(const Mode& m) {
+            const auto* mgr = std::get_if<Managed>(&m);
+            return mgr && mgr->type == ManagedType::Stack;
+        }
+
         std::string commit(WORKSPACEID wsId, SWorkspaceRuntime& rt, const Mode& previous) {
+            const bool wireModeChanged = formatMode(rt.current) != formatMode(previous);
+
             // Rule 3 exception: transitioning INTO Managed{Stack} groups
             // existing non-floating windows. All other transitions leave
             // existing windows alone.
-            const bool becameStack =
-                std::holds_alternative<Managed>(rt.current) && std::get<Managed>(rt.current).type == ManagedType::Stack &&
-                !(std::holds_alternative<Managed>(previous) && std::get<Managed>(previous).type == ManagedType::Stack);
-
-            if (becameStack)
+            if (isStack(rt.current) && !isStack(previous))
                 groupExistingWindows(wsId);
 
-            emit(wsId);
+            // Redundant emit suppression: `wsmode toggle` on Floating flips
+            // lastManaged only, so the wire mode doesn't change. Emitting
+            // the same `wsmode>>N,float` twice tells consumers nothing.
+            // `wsmode set X` on an already-X workspace similarly.
+            if (wireModeChanged)
+                emit(wsId);
+
             return std::string{formatMode(rt.current)};
         }
 
