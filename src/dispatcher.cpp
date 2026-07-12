@@ -212,29 +212,83 @@ namespace hyprwsmode {
         // also configures Hyprland to use the classic keybind syntax.
         // Registering these thunks gives users both paths:
         //
-        //   bind = SUPER, m, dispatcher, wsmode, toggle        # classic
-        //   hyprctl dispatch 'hl.plugin.wsmode.toggle()'       # Lua
-        //   local hy = hl.plugin.wsmode; hy.toggle()           # Lua config
+        //   bind = SUPER, m, dispatcher, wsmode, toggle          # classic
+        //   hyprctl dispatch 'hl.plugin.wsmode.toggle()'         # Lua CLI
+        //   hl.bind("SUPER + m", function() return              # Lua config
+        //     hl.plugin.wsmode.toggle() end)
         //
         // Signatures match PLUGIN_LUA_FN = int (*)(lua_State*); a return
         // value of N means "N return values pushed on the Lua stack".
+        //
+        // Return contract: hl.bind's callback and hyprctl's Lua evaluator
+        // both expect the returned value to be a valid dispatcher table.
+        // The action thunks (toggle, toggle_float, set, reseed) perform
+        // their side effect via handle() and then push hl.dsp.no_op() as
+        // a valid dispatcher table so the caller has something to invoke.
+        // Without this the action-fires-on-callback path was silent (bind
+        // saw nil back, treated the whole thing as unbindable).
+        //
+        // The query thunk (current) pushes the mode string and returns it
+        // as-is. It is not intended for hl.bind; users querying via CLI
+        // wrap it in print, e.g.
+        //   hyprctl dispatch 'print(hl.plugin.wsmode.current())'.
+
+        // Build hl.dsp.no_op() on top of the Lua stack. Pushes nil on
+        // any lookup failure so the caller always sees exactly one
+        // value pushed regardless of Hyprland Lua init state.
+        void pushNoOp(lua_State* L) {
+            lua_getglobal(L, "hl");
+            if (!lua_istable(L, -1)) {
+                lua_pop(L, 1);
+                lua_pushnil(L);
+                return;
+            }
+
+            lua_getfield(L, -1, "dsp");
+            lua_remove(L, -2);  // pop `hl`, leave `dsp` on top
+            if (!lua_istable(L, -1)) {
+                lua_pop(L, 1);
+                lua_pushnil(L);
+                return;
+            }
+
+            lua_getfield(L, -1, "no_op");
+            lua_remove(L, -2);  // pop `dsp`, leave `no_op` on top
+            if (!lua_isfunction(L, -1)) {
+                lua_pop(L, 1);
+                lua_pushnil(L);
+                return;
+            }
+
+            // lua_pcall runs no_op() and replaces the function with its
+            // single return value. If it raises, the error message ends
+            // up on the stack; convert to a warn line and yield nil so
+            // the compositor doesn't panic in a plugin callback.
+            if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
+                const char* errMsg = lua_tostring(L, -1);
+                log::warn("hl.dsp.no_op() failed: {}", errMsg ? errMsg : "(no message)");
+                lua_pop(L, 1);
+                lua_pushnil(L);
+            }
+        }
 
         int lua_toggle(lua_State* L) {
-            (void)L;
             handle("toggle");
-            return 0;
+            pushNoOp(L);
+            return 1;
         }
 
         int lua_toggle_float(lua_State* L) {
-            (void)L;
             handle("toggle_float");
-            return 0;
+            pushNoOp(L);
+            return 1;
         }
 
         int lua_set(lua_State* L) {
             const char* arg = luaL_checkstring(L, 1);
             handle(std::string{"set "} + arg);
-            return 0;
+            pushNoOp(L);
+            return 1;
         }
 
         int lua_current(lua_State* L) {
@@ -244,9 +298,9 @@ namespace hyprwsmode {
         }
 
         int lua_reseed(lua_State* L) {
-            (void)L;
             handle("reseed");
-            return 0;
+            pushNoOp(L);
+            return 1;
         }
 
     }  // namespace

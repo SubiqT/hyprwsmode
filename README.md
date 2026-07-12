@@ -103,19 +103,30 @@ Three ways to invoke the plugin's actions:
 2. **Lua config** in `hyprland.lua`, using the `hl.plugin.wsmode.*` namespace:
    ```lua
    local wsmode = hl.plugin.wsmode
-   hl.bind({ mod = "SUPER", key = "m", action = wsmode.toggle })
-   hl.bind({ mod = "SUPER_SHIFT", key = "m", action = wsmode.toggle_float })
+   hl.bind("SUPER + m",         function() return wsmode.toggle() end)
+   hl.bind("SUPER + SHIFT + m", function() return wsmode.toggle_float() end)
+   hl.bind("SUPER + CTRL + m",  function() return wsmode.reseed() end)
    ```
+   The `return` is required: `hl.bind`'s callback must yield a dispatcher
+   table for the keypress to fire. Each action thunk performs its side
+   effect and returns `hl.dsp.no_op()` so `hl.bind` has something valid to
+   call on keypress.
 
 3. **`hyprctl` from the shell**, either through the classic dispatch:
    ```sh
    hyprctl dispatch wsmode toggle
-   hyprctl dispatch wsmode current
    ```
    or through Lua evaluation on Hyprland 0.55+:
    ```sh
    hyprctl dispatch 'hl.plugin.wsmode.toggle()'
    ```
+   Query the current mode via:
+   ```sh
+   hyprctl dispatch 'print(hl.plugin.wsmode.current())'
+   ```
+   `current` returns the mode as a Lua string rather than a dispatcher,
+   so wrap it in `print(...)` for CLI use. Do not call it from an
+   `hl.bind` callback; use the action thunks for keybinds.
 
 Subcommands:
 
