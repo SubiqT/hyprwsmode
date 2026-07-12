@@ -7,6 +7,7 @@
 #include <hyprland/src/helpers/Color.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 
+#include "config.hpp"
 #include "globals.hpp"
 
 // PLUGIN_API_VERSION returns the ABI tag baked into the Hyprland headers
@@ -33,6 +34,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             5000);
         throw std::runtime_error("[hyprwsmode] version mismatch");
     }
+
+    // Register all config keywords before any config parse pass. Calling
+    // HyprlandAPI::reloadConfig after registration forces a re-read so
+    // user-supplied values in hyprland.conf are honoured on first load.
+    hyprwsmode::registerConfig();
+    HyprlandAPI::reloadConfig();
 
     HyprlandAPI::addNotification(
         PHANDLE,
