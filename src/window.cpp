@@ -5,6 +5,7 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/helpers/signal/Signal.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
 
 #include "log.hpp"
 #include "mode.hpp"
@@ -17,6 +18,26 @@ namespace hyprwsmode {
         CHyprSignalListener g_openEarlyListener;
         CHyprSignalListener g_openListener;
         CHyprSignalListener g_moveToWorkspaceListener;
+
+        // Flip a window's floating wire flag. For placed windows, route
+        // through CLayoutManager::changeFloatingMode so the tile tree is
+        // updated (dwindle picks up the window on float -> managed, drops
+        // it on managed -> float). Setting m_isFloating directly leaves
+        // the layout tree stale, so a window that just left float sits at
+        // its old floating position until an unrelated event triggers a
+        // recompute (e.g. opening another window). For pre-placement
+        // windows (openEarly path, layoutTarget() is null before
+        // newTarget runs), fall back to a direct flag set so the layout
+        // branches into the right newTarget path.
+        void setFloatingWireState(PHLWINDOW w, bool floating) {
+            if (w->m_isFloating == floating)
+                return;
+            if (auto target = w->layoutTarget()) {
+                g_layoutManager->changeFloatingMode(target);
+                return;
+            }
+            w->m_isFloating = floating;
+        }
     }
 
     void applyModeToWindow(PHLWINDOW w, WORKSPACEID wsId, const Mode& mode) {
@@ -33,10 +54,10 @@ namespace hyprwsmode {
                            // resets w->m_group internally, no need to null it here.
                            if (w->m_group)
                                w->m_group->remove(w);
-                           w->m_isFloating = true;
+                           setFloatingWireState(w, true);
                        },
                        [&](const Managed& m) {
-                           w->m_isFloating = false;
+                           setFloatingWireState(w, false);
 
                            if (m.type == ManagedType::Tile) {
                                if (w->m_group)
