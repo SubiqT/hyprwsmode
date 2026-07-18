@@ -58,23 +58,14 @@ namespace hyprwsmode {
             return mon->m_activeWorkspace->m_id;
         }
 
-        // Reformat all non-floating windows on the workspace to match a
-        // target mode. Used on stack-transition boundaries (entering or
-        // leaving stack) so the workspace-wide invariant holds:
-        //
-        //   Entering stack: existing tiled windows join the new group.
-        //   Leaving stack:  existing grouped windows are removed from the
-        //                   group and re-inserted by dwindle (tile target)
-        //                   or set floating (float target).
-        //
-        // Already-floating windows on the workspace are left alone, per
-        // design rule 2 (existing floating windows unaffected by mode
-        // changes).
+        // Reformat all windows on the workspace to match a target mode.
+        // Called on every wire-mode change. This is the plugin's core
+        // premise: the workspace's mode governs the behaviour of every
+        // window on it, so a mode change must visibly apply to windows
+        // already open, not just to future ones.
         void applyModeToExistingWindows(WORKSPACEID wsId, const Mode& mode) {
             for (const auto& w : g_pCompositor->m_windows) {
                 if (!w || !w->m_workspace || w->m_workspace->m_id != wsId)
-                    continue;
-                if (w->m_isFloating)
                     continue;
 
                 applyModeToWindow(w, wsId, mode);
@@ -94,11 +85,11 @@ namespace hyprwsmode {
         std::string commit(WORKSPACEID wsId, SWorkspaceRuntime& rt, const Mode& previous) {
             const bool wireModeChanged = formatMode(rt.current) != formatMode(previous);
 
-            // Reformat existing non-floating windows whenever the stack
-            // boundary is crossed. Entering stack groups them; leaving
-            // stack ungroups them and re-applies the destination mode.
-            // The isStack asymmetry catches both directions in one check.
-            if (isStack(rt.current) != isStack(previous))
+            // Apply mode to all existing windows whenever the wire mode
+            // changes. The workspace mode governs every window on the
+            // workspace; a toggle that only affected new windows would
+            // defeat the plugin's purpose.
+            if (wireModeChanged)
                 applyModeToExistingWindows(wsId, rt.current);
 
             // Redundant emit suppression: `wsmode toggle` on Floating flips
