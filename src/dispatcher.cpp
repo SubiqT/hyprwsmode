@@ -136,12 +136,12 @@ namespace hyprwsmode {
                 rt.current       = Mode{Managed{next}};
                 rt.lastManaged   = next;
             } else {
-                // On Floating: don't leave float. Flip lastManaged so the
-                // next toggle_float restores the opposite managed type.
-                // Emit anyway so consumers see the DEBUG-like signal.
-                rt.lastManaged = flip(rt.lastManaged);
-                log::debug("toggle on floating ws {}, updated lastManaged to {}",
-                           wsId, formatManagedType(rt.lastManaged));
+                // On Floating: transition back to Managed[lastManaged].
+                // Users who want to go INTO float use toggle_float. This
+                // makes `toggle` always produce a visible change: the
+                // workspace either flips type within managed, or leaves
+                // float back to whichever managed type it last held.
+                rt.current = Mode{Managed{rt.lastManaged}};
             }
 
             return okWith(commit(wsId, rt, previous));
