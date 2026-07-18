@@ -58,18 +58,26 @@ namespace hyprwsmode {
             return mon->m_activeWorkspace->m_id;
         }
 
-        // Group all non-floating windows on the workspace into a single
-        // group. Called when a workspace transitions to Managed{Stack};
-        // the design's rule-3 exception on top of rule-2 (existing windows
-        // are otherwise left alone).
-        void groupExistingWindows(WORKSPACEID wsId) {
+        // Reformat all non-floating windows on the workspace to match a
+        // target mode. Used on stack-transition boundaries (entering or
+        // leaving stack) so the workspace-wide invariant holds:
+        //
+        //   Entering stack: existing tiled windows join the new group.
+        //   Leaving stack:  existing grouped windows are removed from the
+        //                   group and re-inserted by dwindle (tile target)
+        //                   or set floating (float target).
+        //
+        // Already-floating windows on the workspace are left alone, per
+        // design rule 2 (existing floating windows unaffected by mode
+        // changes).
+        void applyModeToExistingWindows(WORKSPACEID wsId, const Mode& mode) {
             for (const auto& w : g_pCompositor->m_windows) {
                 if (!w || !w->m_workspace || w->m_workspace->m_id != wsId)
                     continue;
                 if (w->m_isFloating)
                     continue;
 
-                applyModeToWindow(w, wsId, Mode{Managed{ManagedType::Stack}});
+                applyModeToWindow(w, wsId, mode);
             }
         }
 
@@ -86,11 +94,12 @@ namespace hyprwsmode {
         std::string commit(WORKSPACEID wsId, SWorkspaceRuntime& rt, const Mode& previous) {
             const bool wireModeChanged = formatMode(rt.current) != formatMode(previous);
 
-            // Rule 3 exception: transitioning INTO Managed{Stack} groups
-            // existing non-floating windows. All other transitions leave
-            // existing windows alone.
-            if (isStack(rt.current) && !isStack(previous))
-                groupExistingWindows(wsId);
+            // Reformat existing non-floating windows whenever the stack
+            // boundary is crossed. Entering stack groups them; leaving
+            // stack ungroups them and re-applies the destination mode.
+            // The isStack asymmetry catches both directions in one check.
+            if (isStack(rt.current) != isStack(previous))
+                applyModeToExistingWindows(wsId, rt.current);
 
             // Redundant emit suppression: `wsmode toggle` on Floating flips
             // lastManaged only, so the wire mode doesn't change. Emitting
