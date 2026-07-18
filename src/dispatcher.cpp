@@ -180,8 +180,22 @@ namespace hyprwsmode {
             return okWith(commit(wsId, rt, previous));
         }
 
+        // `wsmode broadcast` re-emits wsmode>>N,<mode> on socket2 for every
+        // workspace this plugin tracks, without changing any state. Bar
+        // widgets that started after Hyprland use it to fetch an initial
+        // snapshot; the socket2 stream is otherwise event-only, and a
+        // widget with no delivered events sits with no mode data. The
+        // same rebroadcast path is used from the config.reloaded listener.
+        SDispatchResult doBroadcast() {
+            broadcastAll();
+            return okWith("");
+        }
+
         SDispatchResult handle(std::string args) {
             const auto [cmd, arg] = splitArgs(args);
+
+            // `broadcast` is a whole-plugin read; no active workspace needed.
+            if (cmd == "broadcast")    return doBroadcast();
 
             const auto wsId = activeWorkspaceId();
             if (wsId == WORKSPACE_INVALID)
@@ -196,7 +210,7 @@ namespace hyprwsmode {
             if (cmd == "toggle_float") return doToggleFloat(wsId, rt);
             if (cmd == "set")          return doSet(wsId, rt, arg);
             if (cmd == "current")      return doCurrent(rt);
-            if (cmd.empty())           return err("wsmode: missing subcommand (toggle | toggle_float | set | reseed | current)");
+            if (cmd.empty())           return err("wsmode: missing subcommand (toggle | toggle_float | set | reseed | current | broadcast)");
 
             return err(std::format("wsmode: unknown subcommand '{}'", cmd));
         }
@@ -303,6 +317,12 @@ namespace hyprwsmode {
             return 1;
         }
 
+        int lua_broadcast(lua_State* L) {
+            handle("broadcast");
+            pushNoOp(L);
+            return 1;
+        }
+
     }  // namespace
 
     void registerDispatchers() {
@@ -321,6 +341,7 @@ namespace hyprwsmode {
             {"set",          &lua_set},
             {"current",      &lua_current},
             {"reseed",       &lua_reseed},
+            {"broadcast",    &lua_broadcast},
         };
 
         for (const auto& b : bindings) {

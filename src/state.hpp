@@ -37,6 +37,12 @@ namespace hyprwsmode {
     // effective mode. No-op if the workspace has no entry.
     void emit(WORKSPACEID id);
 
+    // Emit "wsmode>>id,<mode>" for every workspace this plugin tracks,
+    // without changing any state. Used both from the config.reloaded
+    // listener and from the `wsmode broadcast` dispatcher so bar
+    // widgets started after Hyprland can request a fresh snapshot.
+    void broadcastAll();
+
     // Register workspace.created, workspace.removed, and
     // config.reloaded listeners plus an initial seeding pass over
     // Hyprland's existing workspaces at PLUGIN_INIT time.

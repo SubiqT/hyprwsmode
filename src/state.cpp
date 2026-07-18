@@ -56,6 +56,11 @@ namespace hyprwsmode {
         });
     }
 
+    void broadcastAll() {
+        for (const auto& [id, _] : g_workspaceModes)
+            emit(id);
+    }
+
     void registerListeners() {
         // Seed any workspaces Hyprland already knows about at plugin
         // load time. This covers hyprctl plugin load after the
@@ -90,10 +95,7 @@ namespace hyprwsmode {
         // re-emit so bar widgets get a fresh snapshot. See design.md
         // "What config.reloaded does not do".
         g_configReloadedListener = Event::bus()->m_events.config.reloaded.listen(
-            []() {
-                for (const auto& [id, _] : g_workspaceModes)
-                    emit(id);
-            });
+            []() { broadcastAll(); });
     }
 
 }  // namespace hyprwsmode

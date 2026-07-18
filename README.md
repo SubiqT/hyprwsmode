@@ -139,6 +139,7 @@ Subcommands:
 | `wsmode set float`      | Set the active workspace to float.            |
 | `wsmode current`        | Print the active workspace's mode.            |
 | `wsmode reseed`         | Recompute the active workspace's mode from current config, as if the workspace had just been created. Use after editing defaults in `hyprland.conf` or Nix and running `hyprctl reload`. |
+| `wsmode broadcast`      | Re-emit `wsmode>>N,<mode>` on socket2 for every workspace this plugin tracks, without changing any state. Used by bar widgets started after Hyprland to fetch an initial snapshot. |
 
 Existing windows on the target workspace are left in place, except when
 transitioning to `stack`: existing non-floating windows are grouped
@@ -166,6 +167,7 @@ Payload is `<workspace-id>,<mode>` where mode is one of `tile`,
 - Workspace creation (once per workspace, with the seed mode).
 - Every dispatcher call that changes the mode.
 - `hyprctl reload`, once per known workspace, with the current effective mode.
+- An explicit `wsmode broadcast` dispatcher call, once per known workspace, with the current effective mode.
 
 Consume it like any other socket2 event:
 
