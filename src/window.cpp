@@ -19,28 +19,38 @@ namespace hyprwsmode {
         CHyprSignalListener g_openListener;
         CHyprSignalListener g_moveToWorkspaceListener;
 
-        // Flip a window's floating wire flag. For placed windows, route
-        // through CLayoutManager::changeFloatingMode so the tile tree is
-        // updated (dwindle picks up the window on float -> managed, drops
-        // it on managed -> float). Setting m_isFloating directly leaves
-        // the layout tree stale, so a window that just left float sits at
-        // its old floating position until an unrelated event triggers a
-        // recompute (e.g. opening another window). For pre-placement
-        // windows (openEarly path, layoutTarget() is null before
-        // newTarget runs), fall back to a direct flag set so the layout
-        // branches into the right newTarget path.
-        void setFloatingWireState(PHLWINDOW w, bool floating) {
+        // Flip a window's floating wire flag.
+        //
+        // - postPlacement=false is the openEarly path: newTarget has not
+        //   run yet, so set m_isFloating directly. newTarget then branches
+        //   into the floating placement path from that flag with no
+        //   visible flash.
+        //
+        // - postPlacement=true is every other path (open, moveToWorkspace,
+        //   applyModeToExistingWindows on wsmode toggle). The window is
+        //   already in the layout, so routing the flip through
+        //   CLayoutManager::changeFloatingMode is the only way to keep
+        //   the tile tree consistent (dwindle picks up windows leaving
+        //   float and drops windows entering it). Setting m_isFloating
+        //   directly here would leave a window that just left float at
+        //   its old floating position until an unrelated event forced a
+        //   layout recompute.
+        void setFloatingWireState(PHLWINDOW w, bool floating, bool postPlacement) {
             if (w->m_isFloating == floating)
                 return;
-            if (auto target = w->layoutTarget()) {
-                g_layoutManager->changeFloatingMode(target);
-                return;
+
+            if (postPlacement) {
+                if (auto target = w->layoutTarget()) {
+                    g_layoutManager->changeFloatingMode(target);
+                    return;
+                }
             }
+
             w->m_isFloating = floating;
         }
     }
 
-    void applyModeToWindow(PHLWINDOW w, WORKSPACEID wsId, const Mode& mode) {
+    void applyModeToWindow(PHLWINDOW w, WORKSPACEID wsId, const Mode& mode, bool postPlacement) {
         if (!w)
             return;
 
@@ -54,10 +64,10 @@ namespace hyprwsmode {
                            // resets w->m_group internally, no need to null it here.
                            if (w->m_group)
                                w->m_group->remove(w);
-                           setFloatingWireState(w, true);
+                           setFloatingWireState(w, true, postPlacement);
                        },
                        [&](const Managed& m) {
-                           setFloatingWireState(w, false);
+                           setFloatingWireState(w, false, postPlacement);
 
                            if (m.type == ManagedType::Tile) {
                                if (w->m_group)
@@ -120,7 +130,7 @@ namespace hyprwsmode {
                 auto&             rt = seedFor(id);
 
                 if (std::holds_alternative<Floating>(rt.current))
-                    applyModeToWindow(w, id, rt.current);
+                    applyModeToWindow(w, id, rt.current, /*postPlacement=*/false);
             });
 
         g_openListener = Event::bus()->m_events.window.open.listen(
@@ -136,7 +146,7 @@ namespace hyprwsmode {
                 if (std::get<Managed>(rt.current).type != ManagedType::Stack)
                     return;
 
-                applyModeToWindow(w, id, rt.current);
+                applyModeToWindow(w, id, rt.current, /*postPlacement=*/true);
             });
 
         // moveToWorkspace(w, ws) fires after the window has been fully placed
@@ -149,7 +159,7 @@ namespace hyprwsmode {
 
                 const WORKSPACEID id = ws->m_id;
                 auto&             rt = seedFor(id);
-                applyModeToWindow(w, id, rt.current);
+                applyModeToWindow(w, id, rt.current, /*postPlacement=*/true);
             });
     }
 

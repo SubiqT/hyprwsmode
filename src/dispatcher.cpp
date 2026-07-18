@@ -68,7 +68,7 @@ namespace hyprwsmode {
                 if (!w || !w->m_workspace || w->m_workspace->m_id != wsId)
                     continue;
 
-                applyModeToWindow(w, wsId, mode);
+                applyModeToWindow(w, wsId, mode, /*postPlacement=*/true);
             }
         }
 
